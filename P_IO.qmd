@@ -1,0 +1,487 @@
+---
+title: "Entrega 1 - Tambo (Balta)"
+format: html
+editor: visual
+---
+
+```{r chunk_name, include = FALSE}
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("lubridate")) install.packages("lubridate")
+if(!require("ggplot2")) install.packages("ggplot2")
+
+# Carga los paquetes
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+
+# Lee el archivo "data.csv"
+df <- read_delim("data.csv")
+
+df <- df %>%
+ rename(`Tiempo de espera`=`Tiempo en cola (minutos)`)
+# Convierte las columnas al tipo de dato datetime (asumiendo formato HH:MM:SS)
+df <- df %>%
+  mutate(
+    `Hora de llegada` = hms(`Hora de llegada`),
+    `Tiempo entre llegada` = hms(`Tiempo entre llegada`),
+    `Hora de inicio de servicio` = hms(`Hora de inicio de servicio`),
+    `Hora de salida` = hms(`Hora de salida`)
+  )
+
+# Calcula el tiempo de servicio en minutos
+df <- df %>%
+  mutate(`Tiempo de servicio` = as.numeric(`Hora de salida` - `Hora de inicio de servicio`) / 60)
+
+# Calcula las estadísticas descriptivas
+descriptive_stats <- df %>%
+  summarise(
+    across(
+      c(`Tiempo de espera`, `Tiempo de servicio`),
+      list(
+        media = mean,
+        desviacion_estandar = sd,
+        minimo = min,
+        q25 = ~ quantile(.x, 0.25),
+        mediana = median,
+        q75 = ~ quantile(.x, 0.75),
+        maximo = max
+      )
+    )
+  )
+
+# Muestra las estadísticas descriptivas
+print(descriptive_stats)
+
+# Histogramas con títulos y etiquetas
+histograma_tiempo_espera <- ggplot(df, aes(x = `Tiempo de espera`)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(title = "Histograma del Tiempo de Espera", x = "Tiempo de Espera (minutos)", y = "Frecuencia")
+
+histograma_tiempo_servicio <- ggplot(df, aes(x = `Tiempo de servicio`)) +
+  geom_histogram(binwidth = 1, fill = "lightgreen", color = "black") +
+  labs(title = "Histograma del Tiempo de Servicio", x = "Tiempo de Servicio (minutos)", y = "Frecuencia")
+
+# Gráfico de barras para el comportamiento del cliente con título y etiquetas
+grafico_barras_comportamiento <- ggplot(df, aes(x = `Comportamiento del cliente (Rening, Jockeying, Balking, Normal )`)) +
+  geom_bar(fill = "gold", color = "black") +
+  labs(title = "Gráfico de Barras del Comportamiento del Cliente", 
+       x = "Comportamiento del Cliente", 
+       y = "Frecuencia") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Boxplot con título y etiquetas
+ggplot(df, aes(y = `Tiempo de espera`)) + 
+  geom_boxplot(fill = "lightgray") +
+  labs(title = "Boxplot del Tiempo de Espera", y = "Tiempo de Espera (minutos)") +
+  theme_classic()
+
+# Gráfico de dispersión con título y etiquetas (corregido)
+ggplot(df, aes(x = 1:nrow(df), y = `Tiempo de espera`)) + 
+  geom_point(shape = 1) +  
+  labs(title = "Gráfico de Dispersión del Tiempo de Espera", 
+       x = "Index", 
+       y = "Tiempo de Espera (minutos)") +
+  theme_classic()
+
+# Gráfico de dispersión Tiempo de espera vs Tiempo de servicio
+ggplot(df, aes(x = `Tiempo de espera`, y = `Tiempo de servicio`)) +
+  geom_point() +
+  labs(title = "Gráfico de Dispersión: Tiempo de Espera vs. Tiempo de Servicio",
+       x = "Tiempo de Espera (minutos)",
+       y = "Tiempo de Servicio (minutos)") +
+  theme_classic()
+
+# Boxplots del Tiempo de espera por Caja
+ggplot(df, aes(x = factor(`Caja`), y = `Tiempo de espera`)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplots del Tiempo de Espera por Caja", 
+       x = "Caja", 
+       y = "Tiempo de Espera (minutos)") +
+  theme_classic()
+
+
+# Guarda las gráficas (opcional)
+ggsave("histograma_tiempo_espera.png", histograma_tiempo_espera)
+ggsave("histograma_tiempo_servicio.png", histograma_tiempo_servicio)
+ggsave("grafico_barras_comportamiento.png", grafico_barras_comportamiento)
+
+# Calcular el tiempo entre llegadas en minutos
+df <- df %>%
+  mutate(`Tiempo entre llegada (minutos)` = as.numeric(`Tiempo entre llegada`) / 60)
+
+# Calcular el tiempo de servicio en minutos
+df <- df %>%
+  mutate(`Tiempo de servicio (minutos)` = as.numeric(`Hora de salida` - `Hora de inicio de servicio`) / 60)
+
+#1. Parámetros del modelo:
+# Calcular la tasa de llegada (λ) por minuto
+lambda <- 1 / mean(df$`Tiempo entre llegada (minutos)`)
+# Calcular la tasa de servicio por cajero (μ) por minuto
+mu <- 1 / mean(df$`Tiempo de servicio (minutos)`)
+
+#2. P-valores:
+# Tiempo promedio de espera:
+
+rho <- lambda / (2 * mu)
+tiempo_espera_teorico <- (rho^2 / (1 - rho)) * (1/mu) 
+
+t.test(df$`Tiempo de espera`, mu = tiempo_espera_teorico)
+
+#Longitud promedio de la cola:
+longitud_cola_teorica <- 2 * rho^3 / (1 - rho)^2
+
+t.test(df$`Número de clientes en cola al llegar`, mu = longitud_cola_teorica)
+
+#Utilización de los cajeros:
+rho <- lambda / (2 * mu)
+
+#Probabilidad de espera:
+probabilidad_espera <- rho^2 / (1 + rho^2)
+
+#Diferencia en el tiempo de espera entre cajas:
+t.test(df$`Tiempo de espera`[df$Caja == 1], df$`Tiempo de espera`[df$Caja == 2])
+
+# Convertir 'Hora de llegada' a minutos desde la medianoche
+df <- df %>%
+  mutate(`Hora de llegada (minutos)` = as.numeric(hour(`Hora de llegada`)) * 60 + as.numeric(minute(`Hora de llegada`))) 
+
+# Ajustar el modelo de regresión con la nueva variable
+modelo_regresion <- lm(`Número de clientes en cola al llegar` ~ `Hora de llegada (minutos)`, data = df)
+
+# Mostrar el resumen del modelo
+summary(modelo_regresion)
+
+# Crear una nueva variable con intervalos de tiempo (cada hora)
+df <- df %>%
+  mutate(`Hora de llegada (intervalo)` = cut(hour(`Hora de llegada`), breaks = seq(6, 10, by = 1), include.lowest = TRUE))
+
+# Ajustar el modelo de regresión con la nueva variable
+modelo_regresion <- lm(`Número de clientes en cola al llegar` ~ `Hora de llegada (intervalo)`, data = df)
+
+# Mostrar el resumen del modelo
+summary(modelo_regresion)
+```
+
+![](P_IO_files/descarga%20(1).png){width="660"}
+
+### **1. Contexto:**
+
+Este proyecto se centra en el análisis de un Tambo, una practi-tienda que forma parte de la cadena Lindcorp, ubicada en el Óvalo de Barranco. Estos establecimientos se caracterizan por ofrecer una variedad de productos de consumo frecuente, como alimentos, bebidas y artículos de higiene personal, con un horario de atención extendido.
+
+**Objetivo del proyecto:**
+
+El objetivo principal de este proyecto es **analizar el sistema de colas** que se forma en las cajas del Tambo durante las horas pico, con el fin de **identificar oportunidades de mejora en la eficiencia del servicio y la satisfacción del cliente.** Buscamos comprender el comportamiento de las colas, los tiempos de espera y la utilización de los cajeros para poder optimizar el proceso de atención al cliente.
+
+**Importancia del proyecto:**
+
+Este proyecto es importante para el Tambo porque puede ayudar a:
+
+-   **Reducir los tiempos de espera:** Al optimizar el sistema de colas, se pueden reducir los tiempos de espera de los clientes, lo que mejora su experiencia de compra.
+
+-   **Aumentar la satisfacción del cliente:** Clientes satisfechos con la rapidez del servicio son más propensos a volver a la tienda y recomendarla a otros.
+
+-   **Mejorar la eficiencia del personal:** Un sistema de colas eficiente permite al personal de caja trabajar de forma más organizada y atender a los clientes con mayor rapidez.
+
+-   **Incrementar las ventas:** Al reducir los tiempos de espera y mejorar la experiencia del cliente, se puede incentivar la compra por impulso y aumentar las ventas.
+
+-   **Identificar cuellos de botella:** El análisis del sistema de colas puede revelar cuellos de botella en el proceso de atención al cliente, lo que permite tomar medidas para solucionarlos.
+
+### **2. Croquis de la tienda y tabla resumen del avance 1**
+
+#### **2.1. Croquis:**
+
+**Descripción del Croquis:**
+
+Este croquis representa la distribución del TAMBO \[Balta\], con el objetivo de analizar el flujo de clientes y el sistema de colas en las cajas.
+
+![](Dibujo4.jpg){fig-align="center" width="533"}
+
+**Elementos del Croquis:**
+
+-   **Entrada/Salida:** La puerta principal, ubicada en el lado derecho del croquis, sirve tanto para la entrada como para la salida de clientes, lo que se representa con una flecha bidireccional.
+
+-   **Cajas:** Se observan dos cajas registradoras, etiquetadas como Caja 1 y Caja 2, ubicadas en la parte superior cerca de la entrada/salida.
+
+-   **Flujo de clientes:** Las flechas azules en el croquis muestran el recorrido habitual de los clientes dentro del TAMBO. Los clientes ingresan por la puerta principal y tienden a dirigirse hacia el fondo de la tienda, donde se encuentran las bebidas frías (cerveza y bebidas no alcohólicas). Luego, circulan entre las góndolas en un patrón general en forma de U, y finalmente se dirigen a las cajas para pagar sus productos.
+
+-   **Zona de espera:** El área sombreada en amarillo frente a las cajas representa la zona donde los clientes forman la cola para pagar.
+
+-   **Góndolas:** Las góndolas, representadas con rectángulos grises, están distribuidas en forma de U a lo largo de la tienda, exhibiendo los diferentes productos.
+
+-   **Refrigeradores:** Los refrigeradores, representados de color azul, se encuentran ubicados al fondo de la tienda y contienen bebidas frías, incluyendo las bebidas alcohólicas que son de interés en este análisis. Su ubicación estratégica al fondo podría ser una estrategia para incentivar el recorrido del cliente por toda la tienda.
+
+**Observaciones:**
+
+-   Se observa que el flujo de clientes se concentra principalmente en la zona de las bebidas frías y en el pasillo central que conduce a las cajas.
+
+-   Se observa que la puerta única de entrada/salida puede generar congestión en horas pico, cuando el flujo de clientes que entran y salen es mayor. Esto podría afectar el tiempo que los clientes pasan en la tienda y la formación de colas en las cajas.
+
+#### **2.2. Tabla resumen concisa:**
+
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| **Pregunta de Interés**                                                                                 | **Variables**                                         | **Modelo Identificado**                         | **P-valores**                       | **Parámetros del Modelo**                                                                              |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| ¿Cuál es el tiempo promedio de espera en la cola durante la hora pico (7-10 pm)?                        | Tiempo en cola (minutos)                              | M/M/2                                           | ```                                 | (λ): 0.5744681 clientes por minuto                                                                     |
+|                                                                                                         |                                                       |                                                 | 2.2e-16                             |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | ```                                 | (μ): 0.3417722 clientes por minuto                                                                     |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| ¿Cuál es la longitud promedio de la cola durante la hora pico (7-10 pm)?                                | Número de clientes en cola al llegar                  | M/M/2                                           | ```                                 | (λ): 0.5744681 clientes por minuto                                                                     |
+|                                                                                                         |                                                       |                                                 | 2.2e-16                             |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | ```                                 | (μ): 0.3417722 clientes por minuto                                                                     |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| ¿Cuál es la utilización de los cajeros durante la hora pico (7-10 pm)?                                  | Estado Cajero 1 (O/L), Estado Cajero 2 (O/L)          | M/M/2                                           | ```                                 | (λ): 0.5744681 clientes por minuto                                                                     |
+|                                                                                                         |                                                       |                                                 | Utilización(rho):                   |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | 0.8404255                           | (μ): 0.3417722 clientes por minuto                                                                     |
+|                                                                                                         |                                                       |                                                 | ```                                 |                                                                                                        |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| ¿Cuál es la probabilidad de que un cliente tenga que esperar en la cola durante la hora pico (7-10 pm)? | Tiempo en cola (minutos)                              | M/M/2                                           | ```                                 | (λ): 0.5744681 clientes por minuto                                                                     |
+|                                                                                                         |                                                       |                                                 | Probabilidad_espera:                |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | 0.4139418                           | (μ): 0.3417722 clientes por minuto                                                                     |
+|                                                                                                         |                                                       |                                                 | ```                                 |                                                                                                        |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| ¿Existe alguna diferencia significativa en el tiempo de espera entre las cajas 1 y 2?                   | Tiempo en cola (minutos), Cajero (1 o 2)              | Prueba t de Student para muestras independient. | ```                                 | \-                                                                                                     |
+|                                                                                                         |                                                       |                                                 | p-value =                           |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | 0.1421                              |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | ```                                 |                                                                                                        |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+| ¿Cómo se relaciona el número de clientes en cola con la hora del día?                                   | Número de clientes en cola al llegar, Hora de llegada | Regresión lineal                                | ```                                 | Coeficientes de la regresión: 1.0968, 0.8776, 0.6401 (Intercept y coheficientes para ambos intervalos) |
+|                                                                                                         |                                                       |                                                 | 0.000137,                           |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | 0.004939                            |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | (uno para cada intervalo de tiempo) |                                                                                                        |
+|                                                                                                         |                                                       |                                                 | ```                                 |                                                                                                        |
++---------------------------------------------------------------------------------------------------------+-------------------------------------------------------+-------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------+
+
+**Aclaraciones:**
+
+-   **P-valores:** Los p-valores se calculan mediante pruebas de hipótesis. Un p-valor menor a 0.05 indica que hay evidencia suficiente para rechazar la hipótesis nula y concluir que existe una diferencia significativa o una relación entre las variables.
+
+-   **Parámetros del modelo M/M/2:**
+
+    -   **λ (tasa de llegada):** Número promedio de clientes que llegan por unidad de tiempo (por minuto).
+
+        ```{r, echo=FALSE}
+        cat("Tasa de llegada (λ):", lambda, "clientes por minuto\n")
+        ```
+
+    -   **μ (tasa de servicio por cajero):** Número promedio de clientes que un cajero puede atender por unidad de tiempo.
+
+        ```{r, echo=FALSE}
+        cat("Tasa de servicio por cajero (μ):", mu, "clientes por minuto\n")
+        ```
+
+-   **Prueba t de Student:** Se utiliza para comparar las medias de dos grupos independientes (en este caso, los tiempos de espera en la caja 1 y la caja 2).
+
+-   **Regresión lineal:** Se utiliza para modelar la relación entre dos variables continuas (en este caso, el número de clientes en cola y la hora del día).
+
+### **3. Descripción del proceso:**
+
+**3.1.Disciplina de llegada:\
+**La llegada de clientes a la tienda Tambo es **estocástica** y sigue una **distribución de Poisson**, lo que implica variabilidad y un patrón no estacionario, especialmente en las horas pico (7 pm a 10 pm).
+
+-   **Balking**: Cuando la fila es muy larga o la espera parece excesiva, algunos clientes deciden no unirse a la cola, reduciendo la longitud de la fila y potencialmente afectando las ventas.
+
+-   **Reneging**: Otros clientes que ya están en la fila abandonan después de esperar un tiempo. Este comportamiento puede disminuir la satisfacción y afectar el número de clientes atendidos.
+
+-   **Jockeying**: Algunos clientes cambian de fila al percibir que otra avanza más rápido, lo cual genera fluctuaciones en la longitud de cada cola.
+
+En contraste, los clientes que se comportan de manera **'normal'** se unen a la cola, esperan su turno y son atendidos sin realizar estas acciones adicionales. Estos comportamientos impactan el tiempo de espera y la longitud de la fila, especialmente en momentos de alta demanda.
+
+**3.2.Disciplina de servicio:\
+**La atención en caja en Tambo también es estocástica, con tiempos de servicio que se modelan mediante una distribución exponencial. Sin embargo, estos tiempos varían debido a:
+
+-   **La experiencia del cliente**: Los "clientes frecuentes" suelen ser atendidos más rápidamente, mientras que los "clientes nuevos" suelen requerir más tiempo.
+
+-   **Tipo de productos**: Los productos de despacho rápido (snacks, bebidas) agilizan el tiempo de servicio, mientras que artículos restringidos (cigarrillos, bebidas alcohólicas) o servicios adicionales (recargas móviles, pagos de servicios) aumentan la duración.
+
+**3.3.Capacidad del sistema:\
+**La tienda Tambo tiene una capacidad física limitada:
+
+-   **Espacio**: Solo puede albergar alrededor de 15 clientes, con colas máximas de 5 personas por caja sin obstruir el paso.
+
+-   **Cajeros**: La presencia de solo dos cajeros genera congestión en horas pico, creando un cuello de botella que afecta el flujo continuo de clientes.
+
+Esta limitación espacial puede provocar que algunos clientes decidan no entrar o abandonen la fila, impactando la capacidad de la tienda para atender la demanda en momentos críticos.
+
+**3.4.Número de canales de servicio:\
+**Tambo cuenta con dos canales de servicio en las cajas dispuestos en paralelo, lo que permite atender a varios clientes simultáneamente. Sin embargo, la limitación en el número de cajas afecta la fluidez del servicio y la capacidad de reducir las colas en momentos de alta demanda.
+
+**3.5.Número de estaciones de servicio:\
+**La tienda dispone de una única estación de pago principal, que:
+
+-   Procesa pagos de productos y realiza transacciones adicionales (venta de productos de acceso restringido, recargas móviles).
+
+Esta estación es fundamental para la calidad del servicio, ya que la rapidez y precisión en las transacciones contribuyen a reducir los tiempos de espera, mejorar la experiencia del cliente y fomentar la fidelización.
+
+### 4. Preguntas de interés:
+
+#### **4.1. Preguntas relevantes y cuantificables:**
+
+-   **¿Cuál es el tiempo promedio de espera en la caja durante las horas pico?**
+
+    Medir el tiempo de espera promedio permitirá evaluar la eficiencia del sistema y la experiencia del cliente en términos de tiempo de servicio
+
+-   **¿Cuántos clientes abandonan el establecimiento debido a tiempos de espera excesivos?**
+
+    Cuantificar la pérdida de ventas por tiempos de espera largos ayudará a estimar el impacto financiero de este problema y a justificar posibles inversiones en mejoras de eficiencia.
+
+-   **¿Cuál es la probabilidad de que los clientes experimenten tiempos de espera excesivos durante las horas pico?**
+
+    Esta pregunta ayuda a cuantificar la frecuencia con que los clientes se enfrentan a demoras insatisfactorias. Conocer esta probabilidad podría dirigirnos hacia soluciones específicas para reducir el tiempo de espera en momentos de alta demanda.
+
+-   **¿Cuál es la utilización de las estaciones de pago y del personal volante durante las horas pico?**
+
+    Analizar el porcentaje de utilización de las estaciones de pago y el personal volante permitirá evaluar si los recursos actuales son suficientes o si es necesario aumentar el número de cajeros o volantes durante ciertos períodos
+
+-   **¿Cuál es la cantidad promedio de clientes que llegan al establecimiento por hora desde las 7:00 pm hasta las 10:00 pm ?**
+
+#### **4.2.Indicadores de interés:**
+
+-   **Tiempo Promedio de espera en cola(Wq):** Este indicador es fundamental  ya que nos ayuda a medir la experiencia del cliente.Un Wq  elevado  sugiere problemas en la rapidez del servicio y esto puede llevar a la insatisfacción del cliente  y esto podría conllevar a la pérdida de ventas.
+
+-   **Longitud promedio de la cola(Lq):** La longitud de la cola que es  Lq , una visualización clara  del volumen de cliente que enfrenta tiempos de espera, una elevada lq  puede indicar la necesidad de optimizar el número de estaciones de servicio o la velocidad de atención
+
+-   **Probabilidad de que No haya clientes en el sistema (P0):** Conocer el P0 nos ayudará a evaluar  la eficiencia del sistema y el uso de recursos en periodos de baja demanda. Un valor bajo nos puede iniciar que el sistema está frecuentemente saturado
+
+-   **Utilización del sistema(P):** Un P alto  puede indicar que el sistema está sobrecargado, mientras que un P bajo nos podría indicar una subutilización de los recursos
+
+-   **Tasa de llegada(λ):** Conocer la tasa de llegada permite anticipar la demanda y de esa manera planificar el número  de personal necesario para evitar colas excesivas durante horas pico
+
+-   **Tasa de servicio (μ):** Una  tasa de servicio bajo en relación con la tasa de llegada puede llevar a largas colas y tiempo de espera excesivos
+
+### **5. Recolección de datos:**
+
+-   **Variables relevantes:** Las variables relevantes que se medirán en este estudio de observación en la tienda incluyen:
+
+    -   N° Cliente: Número correlativo que identifica a cada cliente.
+
+    -   Hora de llegada: Hora exacta en que el cliente llega a la cola de la caja.
+
+    -   Hora de inicio de servicio: Hora exacta en que el cajero empieza a atender al cliente.
+
+    -   Hora de salida: Hora exacta en que el cliente termina de ser atendido y se retira de la caja.
+
+    -   Tiempo en cola (minutos): Tiempo que el cliente espera en la cola antes de ser atendido (se calcula restando la hora de inicio de servicio a la hora de llegada).
+
+    -   Número de clientes en cola al llegar: Cantidad de clientes que se encuentran en la cola en el momento en que llega el cliente.
+
+    -   Tipo de cliente (Rening, Jockeying, Balking, Normal ): Tipo de cliente que entra a la tienda
+
+Estas variables permitirán evaluar aspectos de servicio, tiempos de espera, y carga de trabajo de los cajeros.
+
+<table>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><p><strong>N° Cliente</strong></p></td>
+<td style="text-align: center;"><p><strong>Hora de llegada</strong></p></td>
+<td style="text-align: center;"><p><strong>Caja</strong></p></td>
+<td style="text-align: center;"><p><strong>Hora de inicio de servicio</strong></p></td>
+<td style="text-align: center;"><p><strong>Hora de salida</strong></p></td>
+<td style="text-align: center;"><p><strong>Tiempo en cola (minutos)</strong></p></td>
+<td style="text-align: center;"><p><strong>Número de clientes en cola al llegar</strong></p></td>
+<td style="text-align: center;"><p><strong>Estado Cajero 1 (O/L)</strong></p></td>
+<td style="text-align: center;"><p><strong>Estado Cajero 2 (O/L)</strong></p></td>
+<td style="text-align: center;"><p><strong>Comportamiento del cliente</strong></p>
+<p><strong>(R, J, B, N)</strong></p></td>
+</tr>
+</tbody>
+</table>
+
+-   **Descripción del Método**
+
+    -   Tipo: Observación directa y registro cronológico
+
+    -   Período: 7:00PM - 10:00PM (180 minutos)
+
+    -   Sistema:
+
+        -   Observación individual de cada cliente desde llegada hasta salida
+
+        -   Registro secuencial de eventos
+
+        -   Seguimiento de dos cajeros simultáneamente
+
+-   **Variables registradas:**
+
+    -   Tiempos (llegada, inicio servicio, salida)
+
+    -   Asignación de cajero
+
+    -   Estado de cola
+
+    -   Estado de cajeros
+
+    -   Incidencias especiales
+
+-   **Tamaño de la muestra:** Para un estudio de colas con un periodo de 180 minutos, debemos considerar.
+
+    -   Nivel de confianza: 95% (Z = 1.96)
+    -   Margen de error: 5%
+    -   Variabilidad estimada: 50% (máxima variabilidad por ser estudio inicial)
+    -   Usando la fórmula para población infinita: (1.96² × 0.5 × 0.5) / 0.05² n = 384 observaciones teóricas
+
+-   **Consideración del Tiempo:**
+
+    -   Periodo total: 180 minutos (3 horas)
+    -   Basado en observaciones preliminares:
+    -   Tiempo promedio de servicio estimado: 3 minutos
+    -   2 cajas operativas
+    -   Capacidad teórica: 120 clientes por hora
+    -   Capacidad total en 3 horas: 360 clientes
+
+-   **Validación de la Muestra:** La muestra será válida si:
+
+    -   Cubre diferentes días de la semana
+
+    -   Se mantiene consistencia en el horario (7-10 PM)
+
+    -   Se logra un mínimo de 300 observaciones
+
+    -   Se registran todas las variables definidas
+
+### 6. Selección de modelos:
+
+-   **Análisis descriptivo:**
+
+    -   Media: El valor de la mediana es 1.22314 esto significa que los clientes pasan alrededor de 1.22 minutos en la cola.
+
+    -   Mediana: La mediana es de 1 minuto, lo que indica que el valor central de los tiempos de cola es 1 minuto.
+
+    -   Rango( máximo- mínimo): El rango es 9 min esto resulta de la resta de tiempo mínimo 0 y del tiempo máximo que es 9. Este valor nos muestra la amplitud total en los tiempos de espera en cola.
+
+    -   Cuartiles:
+
+        -   0% es el mínimo que es 0 minutos
+
+        -   25% (primer cuartil): 0 minutos. Esto significa que el 25% de los tiempos de espera en cola son de 0 minutos o menos.
+
+        -   50% (mediana): 1 minuto. Esto confirma la mediana, indicando que el 50% de los usuarios esperan 1 minuto o menos.
+
+        -   75% (tercer cuartil): 2 minutos. El 75% de los tiempos de espera son de 2 minutos o menos.
+
+        -   100% (máximo): 9 minutos. Este es el tiempo de espera más alto registrado Dispersión, histogramas.
+
+    -   Tiempo en cola están concentrados en los primeros minutos. La mayor parte de los usuarios esperan menos de 2 minutos, y muy pocos superan ese tiempo.
+
+Los tiempos de espera en cola son cortos para la mayoría de los usuarios, con algunos casos aislados de esperas más largas. Esto podría ser que, en la mayoría de las situaciones, el tiempo en cola es eficiente, pero hay eventos o circunstancias donde se generan tiempos de espera mayores.
+
+-   **Selección del modelo M/M/2**
+
+Justificar la elección del modelo con argumentos sólidos, demostrando el entendimiento del equip La elección del modelo M/M/2 para analizar el sistema de colas en la tienda Tambo se fundamenta en su adecuación a las características observadas del proceso de servicio. En primer lugar, la distribución de llegadas de clientes en la tienda, especialmente en las horas pico de 7 pm a 10 pm, presenta un patrón de afluencia aleatoria. Esta variabilidad en las llegadas se representa eficazmente mediante una distribución de Poisson con una tasa de llegada promedio (λ) constante durante el periodo de análisis. Este enfoque es fundamental para garantizar la precisión del modelo M/M/2, permitiendo evaluar de manera realista el flujo de clientes, los tiempos de espera y los niveles de congestión en el sistema de colas.
+
+En cuanto a los tiempos de servicio en Tambo varían según factores como el tipo de productos y la experiencia del cliente, ajustándose a una distribución exponencial. Esto permite calcular la tasa promedio de servicio (μ), esencial para evaluar la eficiencia de los cajeros. La configuración de dos cajeros en paralelo es compatible con el modelo M/M/2, permitiendo la atención simultánea y optimizando la capacidad de servicio en horas de alta demanda
+
+Considerar modelos que incorporen "balking", "reneging" y "jockeying" si es necesario.
+
+El equipo ha observado en Tambo ciertos comportamientos de clientes que pueden influir en el análisis del modelo M/M/2:
+
+-   Balking: Algunos clientes deciden no unirse a la fila si perciben que es demasiado larga, lo cual reduce la cola y potencialmente las ventas.
+
+-   Reneging: Otros abandonan la fila después de esperar, impactando la satisfacción del cliente. Si este comportamiento es frecuente, sería útil incluirlo en el modelo para evaluar la pérdida de clientes y ajustar los tiempos de espera.
+
+-   Jockeying: Algunos clientes cambian de fila al ver que otra se mueve más rápido, causando fluctuaciones en la longitud de la cola.
+
+Incluir este comportamiento ayudaría a analizar cómo la distribución entre las cajas afecta la percepción del tiempo de espera y la satisfacción."
+
+# Bibliografía
+
+-   Fundamentals of Queuing Theory by Donald Gross and Carl Harris. Wiley Series in Probability and Statistics. Third Edition.
