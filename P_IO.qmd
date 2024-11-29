@@ -8,7 +8,9 @@ editor: visual
 if (!require("tidyverse")) install.packages("tidyverse")
 if (!require("lubridate")) install.packages("lubridate")
 if(!require("ggplot2")) install.packages("ggplot2")
-
+# ALDAIR
+# ALDAIR
+# ALDAIR
 # Carga los paquetes
 library(tidyverse)
 library(lubridate)
