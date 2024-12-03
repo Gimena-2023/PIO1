@@ -351,6 +351,9 @@ Esta estación es fundamental para la calidad del servicio, ya que la rapidez y 
 -   **Tasa de servicio (μ):** Una  tasa de servicio bajo en relación con la tasa de llegada puede llevar a largas colas y tiempo de espera excesivos
 
 ### **5. Recolección de datos:**
+para  la recoleccion de data diseñamos la siguiente plantilla
+![](Plantilla.jpg){fig-align="center" width="533"}
+
 
 -   **Variables relevantes:** Las variables relevantes que se medirán en este estudio de observación en la tienda incluyen:
 
