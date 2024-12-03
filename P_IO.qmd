@@ -351,9 +351,6 @@ Esta estación es fundamental para la calidad del servicio, ya que la rapidez y 
 -   **Tasa de servicio (μ):** Una  tasa de servicio bajo en relación con la tasa de llegada puede llevar a largas colas y tiempo de espera excesivos
 
 ### **5. Recolección de datos:**
-para  la recoleccion de data diseñamos la siguiente plantilla
-![](Plantilla.jpg){fig-align="center" width="533"}
-
 
 -   **Variables relevantes:** Las variables relevantes que se medirán en este estudio de observación en la tienda incluyen:
 
@@ -391,31 +388,16 @@ Estas variables permitirán evaluar aspectos de servicio, tiempos de espera, y c
 </tbody>
 </table>
 
--   **Descripción del Método**
+Diseñamos  la plantilla o el mecanismo  para la recoleccionn de datos con el proposito de responder las preguntas de interes, se eligieron variables previas  para  crear 
+una plantilla y recopilar datos importantes.
+![](Plantilla.jpg){fig-align="center" width="533"}
 
-    -   Tipo: Observación directa y registro cronológico
 
-    -   Período: 7:00PM - 10:00PM (180 minutos)
+-  **Plantilla pre nuestreo
 
-    -   Sistema:
+El dia 30 de octubre  a las 6 de la noche llegamos al local para validar la plantilla. Realizando  una pre  muestra durante  3 horas 
+![](recoleccion de datos.jpg){fig-align="center" width="533"}
 
-        -   Observación individual de cada cliente desde llegada hasta salida
-
-        -   Registro secuencial de eventos
-
-        -   Seguimiento de dos cajeros simultáneamente
-
--   **Variables registradas:**
-
-    -   Tiempos (llegada, inicio servicio, salida)
-
-    -   Asignación de cajero
-
-    -   Estado de cola
-
-    -   Estado de cajeros
-
-    -   Incidencias especiales
 
 -   **Tamaño de la muestra:** Para un estudio de colas con un periodo de 180 minutos, debemos considerar.
 
